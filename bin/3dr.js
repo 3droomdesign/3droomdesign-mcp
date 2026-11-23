@@ -6,12 +6,14 @@ import { deviceVault, Session, siteEndpoint } from '../src/auth.js';
 import { Bridge, serve } from '../src/bridge.js';
 import { downloadFile, uploadFile } from '../src/files.js';
 import { locations, matchesLanguage, preferredLanguage, setup } from '../src/installation.js';
+import { remindAboutUpdate, updateCli } from '../src/update.js';
 
 const help = {
   en: `3D Room Design MCP · Node.js 22+
 Usage: 3dr [options] <command>
   setup [--lang en|zh-CN] [--agents codex,cursor]   Choose language and skill destinations
   skills install [--agents ...]                    Add or update the skill for selected agents
+  update [--check]                                 Install a newer GitHub version, or only check
   login [--no-browser]                             Authorize this computer on the 3DR website
   status | logout                                  Check site access or revoke the connection
   tools                                            List granted tools and their input schemas
@@ -26,6 +28,7 @@ Usage: 3dr [options] <command>
 用法：3dr [选项] <命令>
   setup [--lang zh-CN|en] [--agents codex,cursor]   选择语言和 skill 安装位置
   skills install [--agents ...]                    为选中的 Agent 安装或更新 skill
+  update [--check]                                 从 GitHub 更新版本，加 --check 仅检查
   login [--no-browser]                             打开 3DR 网站，授权这台电脑
   status | logout                                  查看连接状态，或撤销连接
   tools                                            列出已授权的工具及其参数
@@ -64,6 +67,7 @@ async function main() {
       profile: { type: 'string', default: 'default' },
       lang: { type: 'string' },
       agents: { type: 'string', multiple: true },
+      check: { type: 'boolean' },
       json: { type: 'string' },
       'no-browser': { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
@@ -91,6 +95,24 @@ async function main() {
       language === 'zh-CN' ? '参数无效，请查看 --help。' : 'Invalid arguments. See --help.',
     );
   };
+  if (command === 'update') {
+    if (args.length || values.agents !== undefined || values.json !== undefined) return invalid();
+    const report = await updateCli({
+      directory: fileURLToPath(new URL('../', import.meta.url)),
+      preferences: paths.preferences,
+      checkOnly: values.check,
+    });
+    return jsonOut(report);
+  }
+  if (values.check) return invalid();
+  const checkForNotice = command === 'status' || (interactive && (installer || ['login', 'tools'].includes(command)));
+  if (!process.env.CI && checkForNotice)
+    await remindAboutUpdate({
+      current: manifest.version,
+      preferences: paths.preferences,
+      language,
+      write: (message) => process.stderr.write(message),
+    });
   if (installer) {
     if (values.json !== undefined) return invalid();
     await setup({

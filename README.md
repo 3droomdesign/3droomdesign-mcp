@@ -33,6 +33,10 @@ Open a new agent session to load the installed Skill. A first request could be �
 
 ## Host configuration and updates
 
+Run `3dr update --check` to compare the installed version with the public GitHub `main` branch. It returns JSON with `current`, `latest` and `updateAvailable`. Run `3dr update` to install a newer version into the same global npm prefix. A preview version ahead of `main` stays installed.
+
+`3dr status` and interactive setup, login and tool listing check at most once a day and write an available-update notice to stderr. The stdio server stays quiet. 更新提示会给出命令 `3dr update`。仅查看版本用 `3dr update --check`。使用较早版本、还没有这个命令时，重新运行上面的 GitHub 安装命令即可升级。
+
 For a person using a terminal, `3dr setup` opens the language and host picker. For multiple requested hosts, supply a comma-separated list such as `3dr setup --lang en --agents codex,claude-code`. Rerun your host's setup command after a CLI update to refresh the installed Skill. The installer preserves locally edited copies.
 
 The default Skill directories are `~/.agents/skills` (Codex), `~/.claude/skills` (Claude Code), `~/.cursor/skills` (Cursor) and `~/.config/opencode/skills` (OpenCode). Some hosts also read shared directories. For separate authorization or spending limits, use a named profile consistently, for example `3dr --profile studio login` and `3dr --profile studio status`. You can revoke that device in the website's **Account → MCP connections** page.
