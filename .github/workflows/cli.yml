@@ -1,0 +1,34 @@
+name: CLI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  cli:
+    name: Test CLI and Git installation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm test
+      - name: Install the checked-out revision in a clean prefix
+        shell: bash
+        run: |
+          prefix="$RUNNER_TEMP/3dr-install"
+          npm install --global --prefix "$prefix" --ignore-scripts "git+file://$GITHUB_WORKSPACE#$(git rev-parse HEAD)"
+          version=$(node -p 'require("./package.json").version')
+          test "$("$prefix/bin/3dr" --version)" = "$version"
+          "$prefix/bin/3dr" config
+          test "$(node "$prefix/lib/node_modules/3droomdesign-mcp/dist/3dr.js" --version)" = "$version"
