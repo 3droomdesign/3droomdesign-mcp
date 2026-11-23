@@ -1,0 +1,44 @@
+{
+  "name": "3droomdesign-mcp",
+  "version": "0.3.1",
+  "description": "Local MCP connector for 3D Room Design presets, rendering, video, house tours and CAD",
+  "type": "module",
+  "license": "MIT",
+  "homepage": "https://3droomdesign.ai",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "3dr": "bin/3dr.js"
+  },
+  "files": [
+    "bin/3dr.js",
+    "src/auth.js",
+    "src/bridge.js",
+    "src/files.js",
+    "src/installation.js",
+    "skills/3dr-media-design/SKILL.md",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@napi-rs/keyring": "2.1.2",
+    "proper-lockfile": "4.1.2"
+  },
+  "devDependencies": {
+    "prettier": "3.7.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/floss1733/3droomdesign-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/floss1733/3droomdesign-mcp/issues"
+  }
+}
