@@ -1,37 +1,45 @@
 # 3D Room Design MCP
 
-Use your own 3D Room Design account from a local agent to create interior images, architectural renders, floor-plan previews and design videos. The CLI includes an Agent Skill and an MCP stdio server. Node.js 22+ is required.
+Give your agent access to your 3D Room Design account to restyle a room photo, render an architectural sketch, preview a floor plan or make a design video. The `3dr` command includes an Agent Skill for terminal-capable agents and a local MCP server for stdio hosts.
 
-## Install and connect / 安装与授权
+## Install from your agent / 让 Agent 自行安装
 
-Install `3dr` directly from GitHub in any terminal with Node.js 22+, npm and Git. 安装好 Node.js 22 或更高版本、npm 和 Git 后，在任意目录打开终端即可安装。
+把下面这句话发给能操作本机终端的 Agent 即可。
+
+> 请从 https://github.com/3droomdesign/3droomdesign-mcp 为你当前所在的 Agent 安装 3dr 和对应的 Skill。按 README 的非交互步骤执行并检查连接。需要授权时请打开官网，我在浏览器里确认。
+
+Agent 可以在本机终端完成安装、选择宿主和检查连接。首次连接时，你在浏览器里选择允许使用的工具和积分限额，授权后可在「账户 → MCP 连接」随时撤销。
+
+**1. Install the CLI on the computer that runs the agent.** Check `node --version` (22 or newer), `npm --version` and `git --version`. Run the following from any directory. Use the same command to update an existing GitHub installation.
 
 ```sh
 npm install --global git+https://github.com/3droomdesign/3droomdesign-mcp.git
 3dr --version
-3dr setup
-3dr login
 ```
 
-在安装向导中选择简体中文或 English，然后选择一个或多个本地 Agent。运行 `login` 会打开系统浏览器，在已有的 3DR 账号下确认设备、工具权限与积分限额。回到终端后打开新的 Agent 会话即可。例如可以说「将这张客厅照片分别改成浅橡木和暖灰风格，先给我报价」。用户可随时在站点「账户 → MCP 连接」撤销对应设备。
+**2. Run the one setup command for the host you are running in.** These commands work without a TTY. Use `--lang en` for English or `--lang zh-CN` for Simplified Chinese.
 
-The setup wizard installs the **3dr-media-design** skill only in the selected destinations. Supported user-level locations are Codex (`~/.agents/skills`), Claude Code (`~/.claude/skills`), Cursor (`~/.cursor/skills`) and OpenCode (`~/.config/opencode/skills`). Some hosts also scan shared or compatible skill directories. Choosing a destination controls where the installer writes. Use a separate profile and website grant when you need separate access or spending limits. A rerun updates previously installed skills and preserves locally edited copies. Open a new agent session after installing.
+| Current host | Run this command |
+| --- | --- |
+| Codex | `3dr setup --lang zh-CN --agents codex` |
+| Claude Code | `3dr setup --lang zh-CN --agents claude-code` |
+| Cursor | `3dr setup --lang zh-CN --agents cursor` |
+| OpenCode | `3dr setup --lang zh-CN --agents opencode` |
+| Other local stdio MCP host | `3dr setup --lang zh-CN --agents none`, then run `3dr config` and add its `mcpServers.3dr` entry to the host configuration. Preserve the other entries. |
 
-```sh
-3dr setup --lang zh-CN --agents codex,claude-code
-3dr skills install --lang en --agents cursor,opencode
-3dr setup --lang en --agents none
-3dr --profile studio login
-3dr --profile studio status
-```
+**3. Check the account connection.** Run `3dr status`. If it reports `"connected": false` (exit code 1), installation is complete and authorization is pending. To connect, run `3dr login` and keep the process running while the user signs in and approves this device, its tools and spending limits on the website. If the browser cannot open automatically, `3dr login --no-browser` prints a link for the user to open on the same computer. Once login returns, run `3dr status` again. With `"connected": true`, run `3dr tools` to verify access without generating media or spending credits.
 
-Keep the executable on the agent’s PATH. Hosts that support a terminal can run the skill immediately. For a host using the MCP protocol, register the following local process. For example, Codex supports `codex mcp add 3dr -- 3dr serve`. Run `3dr config` for a ready-to-copy JSON entry with absolute Node and script paths, including on Windows or when your GUI host has a different PATH.
+Open a new agent session to load the installed Skill. A first request could be “给这张客厅照片做浅橡木和暖灰两套方案，先给我报价。”
 
-```json
-{"mcpServers":{"3dr":{"command":"3dr","args":["serve"]}}}
-```
+## Host configuration and updates
 
-When connecting to a test deployment, set `THREEDR_SITE_ORIGIN` to its website origin in your terminal before login. Run `3dr --profile runtime-qa config` in that same terminal. Paste the resulting entry into your desktop host to use the same website and profile after a restart. The entry contains executable paths, the selected profile and the site address. Your credential stays in the operating system’s credential store.
+For a person using a terminal, `3dr setup` opens the language and host picker. For multiple requested hosts, supply a comma-separated list such as `3dr setup --lang en --agents codex,claude-code`. Rerun your host's setup command after a CLI update to refresh the installed Skill. The installer preserves locally edited copies.
+
+The default Skill directories are `~/.agents/skills` (Codex), `~/.claude/skills` (Claude Code), `~/.cursor/skills` (Cursor) and `~/.config/opencode/skills` (OpenCode). Some hosts also read shared directories. For separate authorization or spending limits, use a named profile consistently, for example `3dr --profile studio login` and `3dr --profile studio status`. You can revoke that device in the website's **Account → MCP connections** page.
+
+Terminal agents can use the Skill and CLI directly. For stdio on the official site, Codex also supports `codex mcp add 3dr -- 3dr serve` when `3dr` is on the host's PATH. `3dr config` prints a ready-to-copy JSON entry with absolute Node and script paths for GUI hosts, including Windows.
+
+The default website is `https://3droomdesign.ai`. For a test deployment, use the login command and MCP entry from that site's **Account → MCP connections** page. To export an entry with absolute executable paths, set `THREEDR_SITE_ORIGIN` to the test website origin and run `3dr --profile runtime-qa config` in the same terminal as `3dr --profile runtime-qa login`. When returning to the official site, clear the test override in the shell and replace the host's test entry with the official one. Each site has its own authorization.
 
 ## Tools and user data
 
