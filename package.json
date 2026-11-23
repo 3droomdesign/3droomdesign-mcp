@@ -1,6 +1,6 @@
 {
   "name": "3droomdesign-mcp",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Local MCP connector for 3D Room Design presets, rendering, video, house tours and CAD",
   "type": "module",
   "license": "UNLICENSED",
@@ -9,17 +9,17 @@
     "node": ">=22"
   },
   "bin": {
-    "3dr": "dist/3dr.js"
+    "3dr": "bin/3dr.js"
   },
   "files": [
+    "bin/3dr.js",
+    "src/",
     "dist/3dr.js",
     "skills/3dr-media-design/SKILL.md",
     "LICENSE",
     "README.md"
   ],
   "scripts": {
-    "build": "esbuild bin/3dr.js --bundle --platform=node --format=esm --target=node22 --packages=external --external:../package.json --minify --legal-comments=eof --outfile=dist/3dr.js",
-    "prepack": "npm run build",
     "test": "node --test"
   },
   "dependencies": {
@@ -27,15 +27,14 @@
     "proper-lockfile": "4.1.2"
   },
   "devDependencies": {
-    "esbuild": "0.28.1",
     "prettier": "3.7.4"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/floss1733/3droomdesign-mcp.git"
+    "url": "git+https://github.com/3droomdesign/3droomdesign-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/floss1733/3droomdesign-mcp/issues"
+    "url": "https://github.com/3droomdesign/3droomdesign-mcp/issues"
   },
   "private": true
 }

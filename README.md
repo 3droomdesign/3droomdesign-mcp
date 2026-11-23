@@ -4,10 +4,11 @@ Use your own 3D Room Design account from a local agent to create interior images
 
 ## Install and connect / 安装与授权
 
-Download the installer from **Account → MCP connections → Add connection** on a site that offers this release. Open a terminal in your download folder. 安装包由已登录的站点账户下载。请在下载目录运行下列命令。
+Install `3dr` directly from GitHub in any terminal with Node.js 22+, npm and Git. 安装好 Node.js 22 或更高版本、npm 和 Git 后，在任意目录打开终端即可安装。
 
 ```sh
-npm install --global ./3droomdesign-mcp-0.3.2.tgz
+npm install --global git+https://github.com/3droomdesign/3droomdesign-mcp.git
+3dr --version
 3dr setup
 3dr login
 ```
