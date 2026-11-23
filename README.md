@@ -4,15 +4,13 @@ Use your own 3D Room Design account from a local agent to create interior images
 
 ## Install and connect / 安装与授权
 
-Install the `3dr` command from the public GitHub repository. 安装后运行 `3dr setup` 选择语言与本地 Agent，再用 `3dr login` 在网站完成授权。
+Download the installer from **Account → MCP connections → Add connection** on a site that offers this release. Open a terminal in your download folder. 安装包由已登录的站点账户下载。请在下载目录运行下列命令。
 
 ```sh
-npm install --global https://github.com/floss1733/3droomdesign-mcp/archive/refs/heads/main.tar.gz
+npm install --global ./3droomdesign-mcp-0.3.2.tgz
 3dr setup
 3dr login
 ```
-
-For a versioned website download, use **Account → MCP connections → Add connection**, or run `npm install --global ./3droomdesign-mcp-0.3.1.tgz` from the download directory.
 
 在安装向导中选择简体中文或 English，然后选择一个或多个本地 Agent。运行 `login` 会打开系统浏览器，在已有的 3DR 账号下确认设备、工具权限与积分限额。回到终端后打开新的 Agent 会话即可。例如可以说「将这张客厅照片分别改成浅橡木和暖灰风格，先给我报价」。用户可随时在站点「账户 → MCP 连接」撤销对应设备。
 
@@ -47,12 +45,6 @@ Use `call TOOL --json -` to read an argument object from stdin. Successful data 
 
 `login` uses the browser, authorization code with PKCE, and a temporary loopback callback. Use `login --no-browser` to open the printed link on the same computer. Tokens are saved in the operating system's credential store (macOS Keychain, Windows Credential Manager or an unlocked Linux Secret Service). Use `status` to check live access and `logout` to revoke it. A website revocation applies to subsequent requests. Each site and profile has its own credential. Requests go to the website’s MCP endpoint. Uploads send the selected file to a single-use signed destination.
 
-## From source
+## Distribution
 
-```sh
-npm ci
-npm test
-npm pack
-```
-
-Install the resulting archive with `npm install --global ./3droomdesign-mcp-0.3.1.tgz`. The connector and bundled skill are distributed under the [MIT license](LICENSE).
+The executable and bundled Agent Skill are licensed for use with your 3D Room Design account. See [LICENSE](LICENSE).
