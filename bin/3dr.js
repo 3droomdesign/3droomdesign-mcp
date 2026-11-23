@@ -105,13 +105,15 @@ async function main() {
     return;
   }
   if (values.agents !== undefined || (values.json !== undefined && command !== 'call')) return invalid();
+  const endpoint = siteEndpoint(undefined, values.endpoint);
+  const vault = deviceVault(endpoint, values.profile);
   if (command === 'config' && !args.length) {
     const serverArgs = [fileURLToPath(import.meta.url), 'serve'];
     if (values.profile !== 'default') serverArgs.push('--profile', values.profile);
-    return jsonOut({ mcpServers: { '3dr': { command: process.execPath, args: serverArgs } } });
+    const server = { command: process.execPath, args: serverArgs };
+    if (process.env.THREEDR_SITE_ORIGIN) server.env = { THREEDR_SITE_ORIGIN: endpoint.origin };
+    return jsonOut({ mcpServers: { '3dr': server } });
   }
-  const endpoint = siteEndpoint(undefined, values.endpoint);
-  const vault = deviceVault(endpoint, values.profile);
   const session = new Session(endpoint, vault, {
     language,
     autoLogin: command === 'serve',

@@ -31,6 +31,8 @@ Keep the executable on the agent’s PATH. Hosts that support a terminal can run
 {"mcpServers":{"3dr":{"command":"3dr","args":["serve"]}}}
 ```
 
+When connecting to a test deployment, set `THREEDR_SITE_ORIGIN` to its website origin in your terminal before login. Run `3dr --profile runtime-qa config` in that same terminal. Paste the resulting entry into your desktop host to use the same website and profile after a restart. The entry contains executable paths, the selected profile and the site address. Your credential stays in the operating system’s credential store.
+
 ## Tools and user data
 
 ```sh

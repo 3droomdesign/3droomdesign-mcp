@@ -1,6 +1,6 @@
 {
   "name": "3droomdesign-mcp",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Local MCP connector for 3D Room Design presets, rendering, video, house tours and CAD",
   "type": "module",
   "license": "UNLICENSED",
