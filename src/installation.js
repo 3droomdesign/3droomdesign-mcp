@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { link, lstat, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
+import { link, lstat, mkdir, readFile, realpath, rename, unlink, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -42,8 +42,9 @@ const copy = {
     installed: 'Installed',
     current: 'Already up to date',
     ready: 'Setup complete.',
-    next: 'Run 3dr login to authorize this computer. Then open a new agent session.',
-    deps: 'The CLI must be on the agent’s PATH. Run 3dr config to print a ready-to-copy local MCP entry.',
+    next: (cli) => `Run ${cli} login to authorize this computer. Then open a new agent session.`,
+    deps: (cli) =>
+      `The CLI must be on the agent’s PATH. Run ${cli} config to print a ready-to-copy local MCP entry.`,
   },
   'zh-CN': {
     choose: '选择语言 / Choose a language',
@@ -58,8 +59,8 @@ const copy = {
     installed: '已安装',
     current: '已是当前版本',
     ready: '设置完成。',
-    next: '运行 3dr login 在网站授权这台电脑，然后打开新的 Agent 会话。',
-    deps: 'Agent 需要能从 PATH 找到 CLI。运行 3dr config 可复制本机的 MCP 宿主配置。',
+    next: (cli) => `运行 ${cli} login 在网站授权这台电脑，然后打开新的 Agent 会话。`,
+    deps: (cli) => `Agent 需要能从 PATH 找到 CLI。运行 ${cli} config 可复制本机的 MCP 宿主配置。`,
   },
 };
 export function matchesLanguage(value) {
@@ -138,10 +139,18 @@ export async function installSkills(ids, language, paths) {
       const path = join(paths[id], skill, 'SKILL.md');
       entries.push({ id, path, action: await plan(path, content, text) });
     }
-    for (const { path, action } of entries) {
-      if (action === 'current') continue;
-      await mkdir(dirname(path), { recursive: true, mode: 0o700 });
-      await atomicWrite(path, content, action === 'new');
+    const installedFolders = new Set();
+    for (const entry of entries) {
+      if (entry.action === 'current') continue;
+      await mkdir(dirname(entry.path), { recursive: true, mode: 0o700 });
+      const folder = await realpath(dirname(entry.path));
+      // Multiple hosts can symlink their skills directories to the same location.
+      if (installedFolders.has(folder)) {
+        entry.action = 'current';
+        continue;
+      }
+      await atomicWrite(entry.path, content, entry.action === 'new');
+      installedFolders.add(folder);
     }
     await atomicWrite(join(paths.preferences, 'language'), language + '\n');
     return entries;
@@ -150,7 +159,9 @@ export async function installSkills(ids, language, paths) {
   }
 }
 
-export async function setup({ language, explicitLanguage, agents, paths, input, output, interactive }) {
+export async function setup({
+  language, explicitLanguage, agents, paths, input, output, interactive, cli = '3dr',
+}) {
   const line = (s) => output.write(s + '\n');
   const reader = interactive ? createInterface({ input, output, terminal: !!input.isTTY }) : null;
   const lines = reader?.[Symbol.asyncIterator]();
@@ -194,8 +205,8 @@ export async function setup({ language, explicitLanguage, agents, paths, input, 
           ' · ' +
           entry.path,
       );
-    line(t.ready + ' ' + t.next);
-    if (!ids.length) line(t.deps);
+    line(t.ready + ' ' + t.next(cli));
+    if (!ids.length) line(t.deps(cli));
   } finally {
     reader?.close();
   }

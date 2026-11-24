@@ -61,8 +61,13 @@ export function openBrowser(url) {
     child.unref();
   });
 }
+export function validateProfile(profile) {
+  if (typeof profile !== 'string' || !/^[A-Za-z0-9._-]{1,64}$/.test(profile))
+    throw new Error('Invalid local profile name.');
+  return profile;
+}
 export function deviceVault(endpoint, profile) {
-  if (!/^[A-Za-z0-9._-]{1,64}$/.test(profile)) throw new Error('Invalid local profile name.');
+  validateProfile(profile);
   const key = createHash('sha256')
     .update(endpoint.href + '\n' + profile)
     .digest('hex');
@@ -126,6 +131,7 @@ export class Session {
       manual = false,
       autoLogin = true,
       language = 'en',
+      loginCommand = '3dr login',
     } = {},
   ) {
     this.endpoint = endpoint;
@@ -136,16 +142,63 @@ export class Session {
     this.manual = manual;
     this.autoLogin = autoLogin;
     this.language = language;
+    this.loginCommand = loginCommand;
   }
   async metadata() {
     if (this.metadataCache) return this.metadataCache;
     const read = async (path) => {
-      const response = await this.fetcher(new URL(path, this.endpoint), {
-        redirect: 'error',
-        signal: AbortSignal.timeout(15000),
-      });
-      if (!response.ok) throw new Error('The site did not return MCP authorization metadata.');
-      return response.json();
+      const url = new URL(path, this.endpoint);
+      const zh = this.language === 'zh-CN';
+      let response;
+      try {
+        response = await this.fetcher(url, {
+          headers: { accept: 'application/json' },
+          redirect: 'error',
+          signal: AbortSignal.timeout(15000),
+        });
+      } catch (cause) {
+        throw new Error(
+          zh
+            ? `无法获取站点的 MCP OAuth 元数据，请检查网络和站点地址。 ${url.href}`
+            : `Could not fetch MCP OAuth metadata. Check the network and site address. ${url.href}`,
+          { cause },
+        );
+      }
+      const source = `${url.href} (HTTP ${response.status})`;
+      if (!response.ok && response.status !== 404) {
+        let message = zh ? '读取 MCP OAuth 元数据失败。' : 'Could not read MCP OAuth metadata.';
+        if (response.status === 401 || response.status === 403)
+          message = zh
+            ? '站点限制了对 MCP OAuth 元数据的访问。'
+            : 'The site restricted access to its MCP OAuth metadata.';
+        else if (response.status === 429 || response.status >= 500)
+          message = zh
+            ? '暂时无法读取 MCP OAuth 元数据，请稍后再试。'
+            : 'MCP OAuth metadata is temporarily unavailable. Try again later.';
+        throw new Error(`${message} ${source}`);
+      }
+      if (response.ok) {
+        const body = await response.text();
+        const html = /^text\/html\b/i.test(response.headers.get('content-type') || '') ||
+          /^\s*<(?:!doctype\s+html|html|head|body)\b/i.test(body);
+        if (!html) {
+          let metadata;
+          try {
+            metadata = JSON.parse(body);
+          } catch {
+            // An invalid document is distinct from a missing route or a frontend fallback.
+          }
+          if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) return metadata;
+          throw new Error(
+            zh ? `MCP OAuth 元数据格式无效。 ${source}` : `Invalid MCP OAuth metadata document. ${source}`,
+          );
+        }
+      }
+      throw new Error(
+        zh
+          ? `该站点未提供 MCP OAuth 元数据。 ${source}。如使用测试站，请从该测试站账户的 MCP 连接页复制接入命令。`
+          : `The site did not provide MCP OAuth metadata. ${source}. For a test site, copy the setup command from that site's Account → MCP connections page.`,
+      );
     };
     const resource = await read('/.well-known/oauth-protected-resource/mcp');
     if (
@@ -177,8 +230,8 @@ export class Session {
       const error = new Error(
         problem.error === 'invalid_grant'
           ? this.language === 'zh-CN'
-            ? '授权已到期或被撤销，请运行 3dr login。'
-            : 'Authorization expired or revoked. Run 3dr login.'
+            ? `授权已到期或被撤销，请运行 ${this.loginCommand}。`
+            : `Authorization expired or revoked. Run ${this.loginCommand}.`
           : 'The token request failed (' + res.status + ').',
       );
       error.invalidGrant = problem.error === 'invalid_grant';
@@ -232,8 +285,8 @@ export class Session {
             reject(
               new Error(
                 this.language === 'zh-CN'
-                  ? '授权超时，请重新运行 3dr login。'
-                  : 'Authorization timed out. Run 3dr login again.',
+                  ? `授权超时，请重新运行 ${this.loginCommand}。`
+                  : `Authorization timed out. Run ${this.loginCommand} again.`,
               ),
             ),
           180000,
@@ -262,8 +315,16 @@ export class Session {
           }
           used = true;
           try {
-            if (callback.searchParams.has('error') || !callback.searchParams.get('code'))
+            if (callback.searchParams.get('error') === 'access_denied') {
+              await this.vault.clear();
               throw new Error(this.language === 'zh-CN' ? '授权已拒绝。' : 'Authorization declined.');
+            }
+            if (callback.searchParams.has('error') || !callback.searchParams.get('code'))
+              throw new Error(
+                this.language === 'zh-CN'
+                  ? `授权未完成，请重新运行 ${this.loginCommand}。`
+                  : `Authorization did not complete. Run ${this.loginCommand} again.`,
+              );
             const access = await this.exchange({
               grant_type: 'authorization_code',
               code: callback.searchParams.get('code'),
@@ -319,8 +380,8 @@ export class Session {
         if (this.autoLogin && !rejected && !(await this.vault.autoLoginBlocked?.())) return this.login();
         const error = new Error(
           this.language === 'zh-CN'
-            ? '请先运行 3dr login。'
-            : 'Sign in with 3dr login.',
+            ? `请先运行 ${this.loginCommand}。`
+            : `Sign in with ${this.loginCommand}.`,
         );
         error.loginRequired = true;
         throw error;
@@ -337,7 +398,7 @@ export class Session {
   async logout() {
     return this.vault.locked(async () => {
       const saved = await this.vault.read();
-      if (!saved) return;
+      if (!saved) return this.vault.clear();
       const meta = await this.metadata();
       const res = await this.fetcher(meta.revocation_endpoint, {
         method: 'POST',
