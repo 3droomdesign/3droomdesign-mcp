@@ -1,6 +1,6 @@
 {
   "name": "3droomdesign-mcp",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "3D Room Design CLI, Agent Skill and local MCP server for architectural images, design videos, tours and CAD, with noninteractive setup for local agents.",
   "type": "module",
   "license": "UNLICENSED",
