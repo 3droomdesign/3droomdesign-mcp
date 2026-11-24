@@ -1,14 +1,18 @@
 # 3D Room Design MCP
 
+**English** | [简体中文](./README.zh-CN.md)
+
 Give your agent access to your 3D Room Design account to restyle a room photo, render an architectural sketch, preview a floor plan or make a design video. The `3dr` command includes an Agent Skill for terminal-capable agents and a local MCP server for stdio hosts.
 
-## Install from your agent / 让 Agent 自行安装
+## Ask your agent to install 3dr
 
-把下面这句话发给能操作本机终端的 Agent 即可。
+Paste this request into an agent that can run commands on your computer.
 
-> 请从 https://github.com/3droomdesign/3droomdesign-mcp 为你当前所在的 Agent 安装 3dr 和对应的 Skill。按 README 的非交互步骤执行并检查连接。需要授权时请打开官网，我在浏览器里确认。
+> Follow the instructions at https://github.com/3droomdesign/3droomdesign-mcp to install and configure 3dr for this agent, open the website if I need to authorize this computer, then list the available design tools.
 
-Agent 可以在本机终端完成安装、选择宿主和检查连接。首次连接时，你在浏览器里选择允许使用的工具和积分限额，授权后可在「账户 → MCP 连接」随时撤销。
+On the first connection, you choose which tools the agent can use and how many credits it can spend. You can revoke access later under **Account → MCP connections** on the website.
+
+### Setup steps for the agent
 
 **1. Install the CLI on the computer that runs the agent.** Check `node --version` (22 or newer), `npm --version` and `git --version`. Run the following from any directory. Use the same command to update an existing GitHub installation.
 
@@ -21,21 +25,21 @@ npm install --global git+https://github.com/3droomdesign/3droomdesign-mcp.git
 
 | Current host | Run this command |
 | --- | --- |
-| Codex | `3dr setup --lang zh-CN --agents codex` |
-| Claude Code | `3dr setup --lang zh-CN --agents claude-code` |
-| Cursor | `3dr setup --lang zh-CN --agents cursor` |
-| OpenCode | `3dr setup --lang zh-CN --agents opencode` |
-| Other local stdio MCP host | `3dr setup --lang zh-CN --agents none`, then run `3dr config` and add its `mcpServers.3dr` entry to the host configuration. Preserve the other entries. |
+| Codex | `3dr setup --lang en --agents codex` |
+| Claude Code | `3dr setup --lang en --agents claude-code` |
+| Cursor | `3dr setup --lang en --agents cursor` |
+| OpenCode | `3dr setup --lang en --agents opencode` |
+| Other local stdio MCP host | `3dr setup --lang en --agents none`, then run `3dr config` and add its `mcpServers.3dr` entry to the host configuration. Preserve the other entries. |
 
 **3. Check the account connection.** Run `3dr status`. If it reports `"connected": false` (exit code 1), installation is complete and authorization is pending. To connect, run `3dr login` and keep the process running while the user signs in and approves this device, its tools and spending limits on the website. If the browser cannot open automatically, `3dr login --no-browser` prints a link for the user to open on the same computer. Once login returns, run `3dr status` again. With `"connected": true`, run `3dr tools` to verify access without generating media or spending credits.
 
-Open a new agent session to load the installed Skill. A first request could be “给这张客厅照片做浅橡木和暖灰两套方案，先给我报价。”
+Open a new agent session to load the installed Skill. Try asking, “Use this living room photo to propose two designs, one in light oak and one in warm gray. Give me a quote first.”
 
 ## Host configuration and updates
 
 Run `3dr update --check` to compare the installed version with the public GitHub `main` branch. It returns JSON with `current`, `latest` and `updateAvailable`. Run `3dr update` to install a newer version into the same global npm prefix. A preview version ahead of `main` stays installed.
 
-`3dr status` and interactive setup, login and tool listing check at most once a day and write an available-update notice to stderr. The stdio server stays quiet. 更新提示会给出命令 `3dr update`。仅查看版本用 `3dr update --check`。使用较早版本、还没有这个命令时，重新运行上面的 GitHub 安装命令即可升级。
+`3dr status` and interactive setup, login and tool listing check at most once a day. When an update is available, the notice on stderr includes the `3dr update` command. The stdio server stays quiet. If your version predates this command, rerun the GitHub installation command above.
 
 For a person using a terminal, `3dr setup` opens the language and host picker. For multiple requested hosts, supply a comma-separated list such as `3dr setup --lang en --agents codex,claude-code`. Rerun your host's setup command after a CLI update to refresh the installed Skill. The installer preserves locally edited copies.
 
@@ -58,7 +62,7 @@ The default website is `https://3droomdesign.ai`. For a test deployment, use the
 
 If a download is interrupted, keep the same command running. It automatically requests the missing bytes in small ranges when the asset has a checksum or a strong ETag. Servers that return the full file can restart the transfer. The destination is created after the size and any available SHA-256 have been verified. Use a new destination path for each download.
 
-Use `call TOOL --json -` to read an argument object from stdin. Successful data commands print JSON. Each connection sees its granted tools, selected site images and its own results. Discover available presets at runtime. For a quote, put the selected tool’s design inputs in `quote_tool.arguments` and omit `request_id`. For submission, call the generation tool directly with the same inputs and a new `request_id`. Reuse that ID when retrying the same generation. If a run requires confirmation, open its approval link on the website, then use `get_run` with its `run_id`. The bundled [skill](skills/3dr-media-design/SKILL.md) also covers variants, video, tours and CAD.
+Use `3dr call TOOL --json -` to read an argument object from stdin. Successful data commands print JSON. Each connection sees its granted tools, selected site images and its own results. Discover available presets at runtime. For a quote, put the selected tool’s design inputs in `quote_tool.arguments` and omit `request_id`. For submission, call the generation tool directly with the same inputs and a new `request_id`. Reuse that ID when retrying the same generation. If a run requires confirmation, open its approval link on the website, then use `get_run` with its `run_id`. The bundled [skill](skills/3dr-media-design/SKILL.md) also covers variants, video, tours and CAD.
 
 `login` uses the browser, authorization code with PKCE, and a temporary loopback callback. Use `login --no-browser` to open the printed link on the same computer. Tokens are saved in the operating system's credential store (macOS Keychain, Windows Credential Manager or an unlocked Linux Secret Service). Use `status` to check live access and `logout` to revoke it. A website revocation applies to subsequent requests. Declining consent or running `logout` stops background authorization prompts for that site and profile. To reconnect, run the login command shown for that profile. Each site and profile has its own credential. Requests go to the website’s MCP endpoint. Uploads send the selected file to a single-use signed destination.
 

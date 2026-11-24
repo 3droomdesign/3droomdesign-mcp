@@ -17,7 +17,8 @@
     "dist/3dr.js",
     "skills/3dr-media-design/SKILL.md",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "README.zh-CN.md"
   ],
   "scripts": {
     "test": "node --test"
