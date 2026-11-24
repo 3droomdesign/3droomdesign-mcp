@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable, Writable } from 'node:stream';
+import { fileURLToPath } from 'node:url';
 import {
   installSkills,
   locations,
@@ -104,4 +106,42 @@ test('only the process environment selects a website; legacy entries cannot chan
     'https://example.org/?a=b',
   ])
     assert.throws(() => siteEndpoint(value));
+});
+
+test('config preserves the selected site and profile when a desktop host starts in a fresh environment', () => {
+  const cli = fileURLToPath(new URL('../bin/3dr.js', import.meta.url));
+  const env = { ...process.env };
+  delete env.THREEDR_SITE_ORIGIN;
+  function config(extra, args = []) {
+    const json = execFileSync(process.execPath, [cli, ...args, 'config'], {
+      env: { ...env, ...extra }, encoding: 'utf8',
+    });
+    return JSON.parse(json).mcpServers['3dr'];
+  }
+  assert.deepEqual(config({}), { command: process.execPath, args: [cli, 'serve'] });
+
+  const origin = 'http://127.0.0.1:41234';
+  const server = config(
+    { THREEDR_SITE_ORIGIN: origin + '/', UNRELATED_VARIABLE: 'example' },
+    ['--profile', 'runtime-qa'],
+  );
+  assert.deepEqual(server, {
+    command: process.execPath,
+    args: [cli, 'serve', '--profile', 'runtime-qa'],
+    env: { THREEDR_SITE_ORIGIN: origin },
+  });
+  const handshake = {
+    jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-11-25' },
+  };
+  const result = execFileSync(server.command, [...server.args, '--endpoint', origin + '/mcp'], {
+    env: { ...env, ...server.env }, input: JSON.stringify(handshake) + '\n', encoding: 'utf8',
+  });
+  assert.equal(JSON.parse(result).result.serverInfo.name, '3droomdesign-mcp');
+
+  for (const args of [['--profile', 'bad profile'], ['--endpoint', 'https://other.example/mcp']]) {
+    assert.equal(spawnSync(process.execPath, [cli, ...args, 'config'], { env }).status, 1);
+  }
+  assert.equal(spawnSync(process.execPath, [cli, 'config'], {
+    env: { ...env, THREEDR_SITE_ORIGIN: origin + '/path' },
+  }).status, 1);
 });

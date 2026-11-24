@@ -1,7 +1,7 @@
 {
   "name": "3droomdesign-mcp",
-  "version": "0.3.3",
-  "description": "Local MCP connector for 3D Room Design presets, rendering, video, house tours and CAD",
+  "version": "0.3.4",
+  "description": "3D Room Design CLI, Agent Skill and local MCP server for architectural images, design videos, tours and CAD, with noninteractive setup for local agents.",
   "type": "module",
   "license": "UNLICENSED",
   "homepage": "https://3droomdesign.ai",
@@ -24,7 +24,8 @@
   },
   "dependencies": {
     "@napi-rs/keyring": "2.1.2",
-    "proper-lockfile": "4.1.2"
+    "proper-lockfile": "4.1.2",
+    "semver": "7.8.6"
   },
   "devDependencies": {
     "prettier": "3.7.4"

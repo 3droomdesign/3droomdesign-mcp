@@ -1,13 +1,17 @@
 ---
 name: 3dr-media-design
-description: Use 3D Room Design when the user wants an architectural rendering, a floor-plan image, interior style variations, or a design video from a room photo. Also supports site presets, shared images, house tours and CAD when authorized. 适用于 3DR 快捷生图、室内改风格、户型图和设计视频。
+description: Install or connect 3dr for the current local agent, or use the user's 3D Room Design account for architectural renders, floor-plan images, room style variants, design videos, tours and CAD. 适用于安装 3DR、快捷生图、户型图和设计视频。
 ---
 
 # 3DR media design
 
-Use the installed `3dr` command on the user's computer. If the host already exposes the 3DR MCP tools, call those tools directly. Both use the same website grant and credit policy for the selected profile.
+If the host already exposes the 3DR MCP tools, call them directly. A terminal-capable agent can use the local `3dr` CLI with the same website grant and credit policy.
 
-1. Run `3dr status` to check the connection. When sign-in is needed, ask the user to run `3dr login` in their terminal and approve the device on the 3DR site. The user handles login and any spending approvals.
+For an installation request, run `npm install --global git+https://github.com/3droomdesign/3droomdesign-mcp.git` on the user's computer with Node.js 22+, npm and Git. Check `3dr --version`. Install this Skill without prompts using `3dr setup --lang en --agents codex` for Codex. Substitute `claude-code`, `cursor` or `opencode` for the current host, and use `--lang zh-CN` for Chinese. For a stdio-only host, use `--agents none` and register the entry printed by `3dr config`. A new agent session picks up the installed Skill.
+
+For version questions, run `3dr update --check`. Relay an available-update notice and its `3dr update` command to the user. When asked to upgrade, run `3dr update` and rerun the current host's setup command to refresh the Skill. On an older CLI that lacks `update`, repeat the GitHub installation command.
+
+1. Run `3dr status` to check the connection. If it reports `"connected": false`, start `3dr login` and keep it running while the user approves access in their browser on the same computer. Recheck `3dr status` after login. The user handles account consent and spending approvals.
 2. Inspect `3dr tools` for this grant's tool names and input schemas. Use `3dr call list_design_presets` for current presets, parameters, prices and limits. Prefer the native preset matching the requested result. For instance, look up `ai-interior-design` for furnishing variants.
 3. To use a local reference, upload only the selected file with `3dr upload ./room.png` and use its `input_ref`. For previously shared designs call `list_selected_assets`. A local path cannot serve as a remote asset reference.
 4. For billable work, call `quote_tool` with the tool name and intended arguments. Submit the chosen generation with a unique `request_id`. Reuse that ID and the exact input on a network retry. When the run returns `awaiting_confirmation`, give the user its `approval_url` and wait for their decision on the website.
