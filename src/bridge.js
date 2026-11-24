@@ -40,14 +40,25 @@ export class Bridge {
         ? AbortSignal.any([signal, AbortSignal.timeout(240000)])
         : AbortSignal.timeout(240000),
     });
-    if (!res.ok) throw new Error('3DR returned HTTP ' + res.status + '.');
-    const reply = await res.json();
-    if (reply.id !== id || reply.jsonrpc !== '2.0') throw new Error('Invalid MCP response.');
-    if (reply.error) {
+    const reply = await res.json().catch((error) => {
+      if (error instanceof SyntaxError) return null;
+      throw error;
+    });
+    const matching = isObject(reply) && reply.jsonrpc === '2.0' && reply.id === id;
+    if (
+      matching &&
+      !('result' in reply) &&
+      isObject(reply.error) &&
+      Number.isSafeInteger(reply.error.code) &&
+      typeof reply.error.message === 'string'
+    ) {
       const error = new Error(reply.error.message);
       error.rpcCode = reply.error.code;
+      error.rpcData = reply.error.data;
       throw error;
     }
+    if (!res.ok) throw new Error('3DR returned HTTP ' + res.status + '.');
+    if (!matching || 'error' in reply || !isObject(reply.result)) throw new Error('Invalid MCP response.');
     return reply.result;
   }
   async call(name, args) {
@@ -60,7 +71,7 @@ export class Bridge {
     const error = (code, msg, data) => ({
       jsonrpc: '2.0',
       id,
-      error: { code, message: msg, ...(data ? { data } : {}) },
+      error: { code, message: msg, ...(data !== undefined ? { data } : {}) },
     });
     if (
       !isObject(message) ||
@@ -101,7 +112,7 @@ export class Bridge {
       const { resultType, ...rest } = result;
       return ok(rest);
     } catch (e) {
-      return error(e.rpcCode ?? -32603, e.message || 'Connection failed.');
+      return error(e.rpcCode ?? -32603, e.message ?? 'Connection failed.', e.rpcData);
     }
   }
 }
@@ -122,7 +133,7 @@ export async function serve(bridge, input = process.stdin, output = process.stdo
       continue;
     }
     if (msg?.method === 'notifications/cancelled' && msg.id === undefined) {
-      pending.get(msg.params?.requestId)?.abort();
+      if (msg.jsonrpc === '2.0') pending.get(msg.params?.requestId)?.abort();
       continue;
     }
     if (tasks.size >= 32 || (msg?.id !== undefined && pending.has(msg.id))) {
@@ -138,7 +149,9 @@ export async function serve(bridge, input = process.stdin, output = process.stdo
     if (msg?.id !== undefined) pending.set(msg.id, controller);
     const task = bridge
       .handle(msg, controller.signal)
-      .then(reply)
+      .then((value) => {
+        if (!controller.signal.aborted) reply(value);
+      })
       .finally(() => {
         pending.delete(msg?.id);
         tasks.delete(task);

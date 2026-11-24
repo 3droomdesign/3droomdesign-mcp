@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { Readable, Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import {
@@ -85,6 +85,45 @@ test('unattended or cancelled setup cannot silently install to all hosts', async
   await assert.rejects(stat(paths.preferences), { code: 'ENOENT' });
   assert.deepEqual(selectedAgents('0'), []);
   assert.equal(selectedAgents('codex,none'), undefined);
+});
+
+test('a shared skills directory installs once for multiple selected agents and preserves edits', async (t) => {
+  const { paths, file } = await sandbox(t);
+  await mkdir(paths.codex, { recursive: true });
+  await mkdir(dirname(paths.cursor), { recursive: true });
+  await symlink(paths.codex, paths.cursor, 'junction');
+  const targets = ['codex', 'cursor'];
+  const first = await installSkills(targets, 'zh-CN', paths);
+  assert.deepEqual(first.map((entry) => entry.action), ['new', 'current']);
+  assert.equal(await preferredLanguage(paths), 'zh-CN');
+  assert.equal(await readFile(file('cursor'), 'utf8'), await readFile(file('codex'), 'utf8'));
+  const second = await installSkills(targets, 'en', paths);
+  assert.deepEqual(second.map((entry) => entry.action), ['current', 'current']);
+  await writeFile(file('cursor'), 'local edits');
+  await assert.rejects(installSkills(targets, 'en', paths), /edited skill/);
+  assert.equal(await readFile(file('codex'), 'utf8'), 'local edits');
+});
+
+test('setup guides the next login and host configuration to the selected profile', async (t) => {
+  const { base, paths } = await sandbox(t);
+  const bin = fileURLToPath(new URL('../bin/3dr.js', import.meta.url));
+  const env = { ...process.env, HOME: base, USERPROFILE: base, CI: '1' };
+  const run = (...args) => spawnSync(process.execPath, [bin, ...args], { env, encoding: 'utf8' });
+  const setupArgs = ['setup', '--agents', 'none', '--lang'];
+  assert.equal(run('--profile', 'invalid profile', ...setupArgs, 'en').status, 1);
+  await assert.rejects(stat(paths.preferences), { code: 'ENOENT' });
+  for (const language of ['en', 'zh-CN']) {
+    const result = run('--profile', 'studio', ...setupArgs, language);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /3dr --profile studio login/);
+    assert.match(result.stdout, /3dr --profile studio config/);
+  }
+  const dashed = run('--profile=-studio', ...setupArgs, 'en');
+  assert.equal(dashed.status, 0, dashed.stderr);
+  assert.match(dashed.stdout, /3dr --profile=-studio login/);
+  const config = JSON.parse(run('--profile=-studio', 'config').stdout).mcpServers['3dr'];
+  const child = spawnSync(config.command, config.args, { env, input: '', encoding: 'utf8' });
+  assert.equal(child.status, 0, child.stderr);
 });
 
 test('only the process environment selects a website; legacy entries cannot change the audience', () => {

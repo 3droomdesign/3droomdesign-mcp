@@ -2,7 +2,7 @@
 import { parseArgs } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import manifest from '../package.json' with { type: 'json' };
-import { deviceVault, Session, siteEndpoint } from '../src/auth.js';
+import { deviceVault, Session, siteEndpoint, validateProfile } from '../src/auth.js';
 import { Bridge, serve } from '../src/bridge.js';
 import { downloadFile, uploadFile } from '../src/files.js';
 import { locations, matchesLanguage, preferredLanguage, setup } from '../src/installation.js';
@@ -78,6 +78,7 @@ async function main() {
     process.stdout.write(manifest.version + '\n');
     return;
   }
+  const profile = validateProfile(values.profile);
   const paths = locations();
   const language =
     values.lang === undefined ? await preferredLanguage(paths) : matchesLanguage(values.lang);
@@ -105,6 +106,12 @@ async function main() {
     return jsonOut(report);
   }
   if (values.check) return invalid();
+  const profileArgs = [];
+  if (profile !== 'default') {
+    if (profile.startsWith('-')) profileArgs.push('--profile=' + profile);
+    else profileArgs.push('--profile', profile);
+  }
+  const cli = ['3dr', ...profileArgs].join(' ');
   const checkForNotice = command === 'status' || (interactive && (installer || ['login', 'tools'].includes(command)));
   if (!process.env.CI && checkForNotice)
     await remindAboutUpdate({
@@ -116,6 +123,7 @@ async function main() {
   if (installer) {
     if (values.json !== undefined) return invalid();
     await setup({
+      cli,
       language,
       explicitLanguage: values.lang !== undefined,
       agents: values.agents?.join(','),
@@ -128,16 +136,16 @@ async function main() {
   }
   if (values.agents !== undefined || (values.json !== undefined && command !== 'call')) return invalid();
   const endpoint = siteEndpoint(undefined, values.endpoint);
-  const vault = deviceVault(endpoint, values.profile);
+  const vault = deviceVault(endpoint, profile);
   if (command === 'config' && !args.length) {
-    const serverArgs = [fileURLToPath(import.meta.url), 'serve'];
-    if (values.profile !== 'default') serverArgs.push('--profile', values.profile);
+    const serverArgs = [fileURLToPath(import.meta.url), 'serve', ...profileArgs];
     const server = { command: process.execPath, args: serverArgs };
     if (process.env.THREEDR_SITE_ORIGIN) server.env = { THREEDR_SITE_ORIGIN: endpoint.origin };
     return jsonOut({ mcpServers: { '3dr': server } });
   }
   const session = new Session(endpoint, vault, {
     language,
+    loginCommand: cli + ' login',
     autoLogin: command === 'serve',
     manual: values['no-browser'],
   });
@@ -153,10 +161,10 @@ async function main() {
   } else if (command === 'status' && !args.length) {
     try {
       await bridge.remote('tools/list');
-      jsonOut({ connected: true, profile: values.profile });
+      jsonOut({ connected: true, profile });
     } catch (error) {
       if (!error.loginRequired && !error.invalidGrant) throw error;
-      jsonOut({ connected: false, profile: values.profile });
+      jsonOut({ connected: false, profile });
       process.exitCode = 1;
     }
   } else if (command === 'logout' && !args.length) {
