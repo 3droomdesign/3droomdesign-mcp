@@ -19,6 +19,14 @@ export class Bridge {
       'Mcp-Method': method,
     };
     if (method === 'tools/call') headers['Mcp-Name'] = params.name;
+    // Older sites reject the submit-only id when an agent reuses a generation payload for a quote.
+    if (method === 'tools/call' && params.name === 'quote_tool') {
+      const quote = params.arguments;
+      if (isObject(quote?.arguments) && Object.hasOwn(quote.arguments, 'request_id')) {
+        const { request_id, ...designInputs } = quote.arguments;
+        params = { ...params, arguments: { ...quote, arguments: designInputs } };
+      }
+    }
     const body = {
       jsonrpc: '2.0',
       id,
@@ -59,6 +67,15 @@ export class Bridge {
     }
     if (!res.ok) throw new Error('3DR returned HTTP ' + res.status + '.');
     if (!matching || 'error' in reply || !isObject(reply.result)) throw new Error('Invalid MCP response.');
+    if (method === 'tools/list' && Array.isArray(reply.result.tools)) {
+      const quote = reply.result.tools.find((tool) => tool?.name === 'quote_tool');
+      const inputs = quote?.inputSchema?.properties?.arguments;
+      if (isObject(inputs) && !inputs.description) {
+        inputs.description =
+          'Use the design inputs from the selected tool’s input schema. Omit request_id for a quote. ' +
+          'Add it when submitting a generation and reuse it for retries of that generation.';
+      }
+    }
     return reply.result;
   }
   async call(name, args) {

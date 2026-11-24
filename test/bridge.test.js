@@ -78,3 +78,70 @@ test('a cancelled stdio request is aborted without a late reply and subsequent r
   assert.equal(signal.aborted, true);
   assert.deepEqual(text.trim().split('\n').map(JSON.parse), [{ jsonrpc: '2.0', id: 'next', result: {} }]);
 });
+
+test('CLI and both stdio protocols can quote a submission payload against a strict site', async () => {
+  const inputs = { brief: 'A warm grey living room', model: 'basic', scene: 'interior', image_count: 1 };
+  const submission = Object.freeze({ ...inputs, request_id: 'living-room-1' });
+  const quote = Object.freeze({ tool: 'render_architecture', arguments: submission });
+  const received = [];
+  const bridge = upstream(({ id, params }) => {
+    received.push([params.name, params.arguments]);
+    const invalid = params.name === 'quote_tool' && 'request_id' in params.arguments.arguments;
+    const result = invalid
+      ? { isError: true, content: [{ type: 'text', text: 'Invalid generation parameters' }] }
+      : { structuredContent: { accepted: true } };
+    return Response.json({ jsonrpc: '2.0', id, result: { resultType: 'complete', ...result } });
+  });
+  assert.deepEqual(await bridge.call('quote_tool', quote), { accepted: true });
+  for (const metadata of [{}, modern]) {
+    const reply = await bridge.handle({
+      jsonrpc: '2.0', id: 8, method: 'tools/call',
+      params: { ...metadata, name: 'quote_tool', arguments: quote },
+    });
+    assert.deepEqual(reply.result.structuredContent, { accepted: true });
+  }
+  assert.deepEqual(received, Array.from({ length: 3 }, () => ['quote_tool', { tool: quote.tool, arguments: inputs }]));
+  await bridge.call(quote.tool, submission);
+  assert.deepEqual(received.at(-1), [quote.tool, { ...inputs, request_id: 'living-room-1' }]);
+});
+
+test('quote compatibility preserves unknown and deeply nested inputs for site validation', async () => {
+  const presetInputs = { parameters: { request_id: 'custom-preset-field' }, unexpected: true };
+  const bridge = upstream(({ id, params }) => {
+    assert.deepEqual(params.arguments, { tool: 'run_design_preset', arguments: presetInputs });
+    return Response.json({
+      jsonrpc: '2.0', id, result: { isError: true, content: [{ type: 'text', text: 'Unknown field: unexpected' }] },
+    });
+  });
+  await assert.rejects(bridge.call('quote_tool', {
+    tool: 'run_design_preset',
+    arguments: { ...presetInputs, request_id: 'submit-only' },
+  }), /Unknown field: unexpected/);
+});
+
+test('discovery explains the quote/submit ID boundary while preserving site-provided guidance', async () => {
+  for (const description of [undefined, 'Site-specific quote guidance.']) {
+    const argumentsSchema = description ? { type: 'object', description } : { type: 'object' };
+    const unrelated = { name: 'another_tool', inputSchema: { properties: { arguments: { type: 'object' } } } };
+    const bridge = upstream(({ id }) => Response.json({
+      jsonrpc: '2.0', id, result: {
+        resultType: 'complete',
+        tools: [
+          { name: 'quote_tool', inputSchema: { properties: { arguments: argumentsSchema } } },
+          unrelated,
+        ],
+      },
+    }));
+    const cli = await bridge.remote('tools/list');
+    const stdio = await bridge.handle({ ...list, params: modern });
+    for (const result of [cli, stdio.result]) {
+      const instructions = result.tools[0].inputSchema.properties.arguments.description;
+      if (description) assert.equal(instructions, description);
+      else {
+        assert.match(instructions, /request_id/);
+        assert.match(instructions, /submit/i);
+      }
+      assert.deepEqual(result.tools[1], unrelated);
+    }
+  }
+});
