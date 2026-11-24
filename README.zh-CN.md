@@ -8,7 +8,7 @@
 
 把这句话发给能操作本机终端的 AI 助手：
 
-> 请按 https://github.com/3droomdesign/3droomdesign-mcp 的说明，为当前助手安装 3dr 和对应的技能，按非交互步骤检查连接，需要授权时打开官网让我确认，最后列出可用的设计工具。
+> 请按 https://github.com/3droomdesign/3droomdesign-mcp/blob/main/README.zh-CN.md 的简体中文步骤为当前助手安装并配置 3dr，需要授权时打开网站让我确认，最后列出可用的设计工具。
 
 助手可以完成安装、选择客户端并检查连接。首次连接时，你在浏览器里选择允许使用的工具和积分限额。你可以随时在网站的「账户 → MCP 连接」中撤销授权。
 
