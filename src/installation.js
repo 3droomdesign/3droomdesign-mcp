@@ -42,7 +42,7 @@ const copy = {
     installed: 'Installed',
     current: 'Already up to date',
     ready: 'Setup complete.',
-    next: (cli) => `Run ${cli} login to authorize this computer. Then open a new agent session.`,
+    next: (cli) => `Run ${cli} login and follow the approval instructions. Then open a new agent session.`,
     deps: (cli) =>
       `The CLI must be on the agent’s PATH. Run ${cli} config to print a ready-to-copy local MCP entry.`,
   },
@@ -59,7 +59,7 @@ const copy = {
     installed: '已安装',
     current: '已是当前版本',
     ready: '设置完成。',
-    next: (cli) => `运行 ${cli} login 在网站授权这台电脑，然后打开新的 Agent 会话。`,
+    next: (cli) => `运行 ${cli} login，按终端提示在网站上授权，然后打开新的 Agent 会话。`,
     deps: (cli) => `Agent 需要能从 PATH 找到 CLI。运行 ${cli} config 可复制本机的 MCP 宿主配置。`,
   },
 };

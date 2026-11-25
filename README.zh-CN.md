@@ -8,7 +8,7 @@
 
 把这句话发给能操作本机终端的 AI 助手：
 
-> 请按 https://github.com/3droomdesign/3droomdesign-mcp/blob/main/README.zh-CN.md 的简体中文步骤为当前助手安装并配置 3dr，需要授权时打开网站让我确认，最后列出可用的设计工具。
+> 请按 https://github.com/3droomdesign/3droomdesign-mcp/blob/main/README.zh-CN.md 的简体中文步骤为当前助手安装并配置 3dr，需要授权时把网址和设备码发给我确认，最后列出可用的设计工具。
 
 助手可以完成安装、选择客户端并检查连接。首次连接时，你在浏览器里选择允许使用的工具和积分限额。你可以随时在网站的「账户 → MCP 连接」中撤销授权。
 
@@ -31,7 +31,7 @@ npm install --global git+https://github.com/3droomdesign/3droomdesign-mcp.git
 | OpenCode | `3dr setup --lang zh-CN --agents opencode` |
 | 其他支持本地 stdio 的 MCP 客户端 | 运行 `3dr setup --lang zh-CN --agents none`，再运行 `3dr config`，将输出中的 `mcpServers.3dr` 条目添加到客户端配置中，保留已有条目。 |
 
-**3. 检查账户连接。** 运行 `3dr status`。如果返回 `"connected": false`（退出码 1），说明已安装，正在等待用户授权。运行 `3dr login` 并保持命令运行，由用户在浏览器中登录网站、确认设备、选择工具并设置积分限额。如果浏览器无法自动打开，运行 `3dr login --no-browser`，请用户在同一台电脑上打开输出的链接。登录命令结束后，再次运行 `3dr status`。看到 `"connected": true` 后，运行 `3dr tools` 查看可用工具。这一步不会生成图片或视频，也不消耗积分。
+**3. 检查账户连接。** 运行 `3dr status`。如果返回 `"connected": false`（退出码 1），说明已安装，正在等待用户授权。运行 `3dr login` 并保持命令运行。将输出的验证网址和短设备码交给用户，用户可以在电脑或手机浏览器打开网址，核对设备码，选择工具并确认积分权限。SSH 终端和远程 Agent 也使用这套步骤。登录命令结束后，再次运行 `3dr status`。看到 `"connected": true` 后，运行 `3dr tools` 查看可用工具。这一步不会生成图片或视频，也不消耗积分。
 
 新开一个助手会话，让它加载刚安装的技能。你可以这样试用：“给这张客厅照片做两套方案，一套浅橡木色，一套暖灰色，先给我报价。”
 
@@ -66,7 +66,7 @@ npm install --global git+https://github.com/3droomdesign/3droomdesign-mcp.git
 
 报价时，把所选工具的设计参数放在 `quote_tool.arguments` 中，省略 `request_id`。正式生成时，直接调用生成工具，沿用同一组设计参数，再加上新的 `request_id`。重试同一次生成时，请复用原来的 ID。如果任务需要确认，请在网站上打开任务返回的审批链接，然后使用 `get_run` 和对应的 `run_id` 查询进度。多方案、视频、漫游和 CAD 的调用方法见[随附技能](skills/3dr-media-design/SKILL.md)。
 
-`3dr login` 在浏览器中使用带 PKCE 的授权码流程，并通过临时本机回环地址接收授权结果。`3dr login --no-browser` 会输出可在同一台电脑上打开的链接。令牌保存在操作系统的凭据库中：macOS 钥匙串、Windows 凭据管理器或 Linux 上已解锁的 Secret Service。
+网站支持设备码时，`3dr login` 默认使用设备码，运行 Agent 的电脑会自动查询授权结果。在本机交互式桌面终端中会同时打开验证页面。使用 `3dr login --device --no-browser` 可以只显示网址和设备码。设备码过期后可重新运行登录命令。需要本机回调时，使用 `3dr login --loopback`，通过 PKCE 授权码登录。旧站点会自动使用本机回调，此时即使加上 `--no-browser`，浏览器也需要与 3dr 在同一台电脑上。令牌保存在操作系统的凭据库中：macOS 钥匙串、Windows 凭据管理器或 Linux 上已解锁的 Secret Service。通过远程 Linux 主机使用时，应让运行 Agent 的会话能够访问该凭据库。
 
 使用 `3dr status` 检查当前连接，使用 `3dr logout` 撤销授权。在网站上撤销授权，会对之后的请求生效。拒绝授权或运行 `3dr logout` 后，此站点和配置将停止在后台提示授权。如需重新连接，请运行该配置对应的登录命令。每个站点和配置使用独立凭据。工具请求发送至站点的 MCP 端点，上传操作只将选中的文件发送至一次性签名地址。
 
