@@ -3,6 +3,7 @@ import { parseArgs } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import manifest from '../package.json' with { type: 'json' };
 import { deviceVault, Session, siteEndpoint, validateProfile } from '../src/auth.js';
+import { hasLocalBrowser } from '../src/device-auth.js';
 import { Bridge, serve } from '../src/bridge.js';
 import { downloadFile, uploadFile } from '../src/files.js';
 import { locations, matchesLanguage, preferredLanguage, setup } from '../src/installation.js';
@@ -14,7 +15,7 @@ Usage: 3dr [options] <command>
   setup [--lang en|zh-CN] [--agents codex,cursor]   Choose language and skill destinations
   skills install [--agents ...]                    Add or update the skill for selected agents
   update [--check]                                 Install a newer GitHub version, or only check
-  login [--no-browser]                             Authorize this computer on the 3DR website
+  login [--device|--loopback] [--no-browser]       Approve on this computer or another device
   status | logout                                  Check site access or revoke the connection
   tools                                            List granted tools and their input schemas
   call TOOL [--json OBJECT|-]                      Call a tool with JSON arguments or stdin
@@ -29,7 +30,7 @@ Usage: 3dr [options] <command>
   setup [--lang zh-CN|en] [--agents codex,cursor]   选择语言和 skill 安装位置
   skills install [--agents ...]                    为选中的 Agent 安装或更新 skill
   update [--check]                                 从 GitHub 更新版本，加 --check 仅检查
-  login [--no-browser]                             打开 3DR 网站，授权这台电脑
+  login [--device|--loopback] [--no-browser]       在本机或另一台设备的浏览器授权
   status | logout                                  查看连接状态，或撤销连接
   tools                                            列出已授权的工具及其参数
   call TOOL [--json OBJECT|-]                      用 JSON 参数或标准输入调用工具
@@ -70,6 +71,8 @@ async function main() {
       check: { type: 'boolean' },
       json: { type: 'string' },
       'no-browser': { type: 'boolean' },
+      device: { type: 'boolean' },
+      loopback: { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
       version: { type: 'boolean', short: 'v' },
     },
@@ -96,6 +99,8 @@ async function main() {
       language === 'zh-CN' ? '参数无效，请查看 --help。' : 'Invalid arguments. See --help.',
     );
   };
+  if ((values.device || values.loopback) && (command !== 'login' || (values.device && values.loopback)))
+    return invalid();
   if (command === 'update') {
     if (args.length || values.agents !== undefined || values.json !== undefined) return invalid();
     const report = await updateCli({
@@ -147,7 +152,8 @@ async function main() {
     language,
     loginCommand: cli + ' login',
     autoLogin: command === 'serve',
-    manual: values['no-browser'],
+    manual: values['no-browser'] || !hasLocalBrowser() || (command === 'login' && !interactive),
+    loginMode: values.device ? 'device' : values.loopback ? 'loopback' : 'auto',
   });
   const bridge = new Bridge(session);
   if (command === 'serve' && !args.length) return serve(bridge);

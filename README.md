@@ -8,7 +8,7 @@ Give your agent access to your 3D Room Design account to restyle a room photo, r
 
 Paste this request into an agent that can run commands on your computer.
 
-> Follow the instructions at https://github.com/3droomdesign/3droomdesign-mcp to install and configure 3dr for this agent, open the website if I need to authorize this computer, then list the available design tools.
+> Follow the instructions at https://github.com/3droomdesign/3droomdesign-mcp to install and configure 3dr for this agent, show me the website and device code if I need to authorize this agent, then list the available design tools.
 
 On the first connection, you choose which tools the agent can use and how many credits it can spend. You can revoke access later under **Account → MCP connections** on the website.
 
@@ -31,7 +31,7 @@ npm install --global git+https://github.com/3droomdesign/3droomdesign-mcp.git
 | OpenCode | `3dr setup --lang en --agents opencode` |
 | Other local stdio MCP host | `3dr setup --lang en --agents none`, then run `3dr config` and add its `mcpServers.3dr` entry to the host configuration. Preserve the other entries. |
 
-**3. Check the account connection.** Run `3dr status`. If it reports `"connected": false` (exit code 1), installation is complete and authorization is pending. To connect, run `3dr login` and keep the process running while the user signs in and approves this device, its tools and spending limits on the website. If the browser cannot open automatically, `3dr login --no-browser` prints a link for the user to open on the same computer. Once login returns, run `3dr status` again. With `"connected": true`, run `3dr tools` to verify access without generating media or spending credits.
+**3. Check the account connection.** Run `3dr status`. If it reports `"connected": false` (exit code 1), installation is complete and authorization is pending. Run `3dr login` and keep it running. Give the user the verification URL and short code printed by 3dr. They can open the URL on their computer or phone, match the code and approve the agent’s tools and spending limits. This also works over SSH or through a remote agent. Once login returns, run `3dr status` again. With `"connected": true`, run `3dr tools` to verify access without generating media or spending credits.
 
 Open a new agent session to load the installed Skill. Try asking, “Use this living room photo to propose two designs, one in light oak and one in warm gray. Give me a quote first.”
 
@@ -64,7 +64,7 @@ If a download is interrupted, keep the same command running. It automatically re
 
 Use `3dr call TOOL --json -` to read an argument object from stdin. Successful data commands print JSON. Each connection sees its granted tools, selected site images and its own results. Discover available presets at runtime. For a quote, put the selected tool’s design inputs in `quote_tool.arguments` and omit `request_id`. For submission, call the generation tool directly with the same inputs and a new `request_id`. Reuse that ID when retrying the same generation. If a run requires confirmation, open its approval link on the website, then use `get_run` with its `run_id`. The bundled [skill](skills/3dr-media-design/SKILL.md) also covers variants, video, tours and CAD.
 
-`login` uses the browser, authorization code with PKCE, and a temporary loopback callback. Use `login --no-browser` to open the printed link on the same computer. Tokens are saved in the operating system's credential store (macOS Keychain, Windows Credential Manager or an unlocked Linux Secret Service). Use `status` to check live access and `logout` to revoke it. A website revocation applies to subsequent requests. Declining consent or running `logout` stops background authorization prompts for that site and profile. To reconnect, run the login command shown for that profile. Each site and profile has its own credential. Requests go to the website’s MCP endpoint. Uploads send the selected file to a single-use signed destination.
+`3dr login` uses a device code when the website supports it. The CLI polls for the user’s decision from the computer running the agent. Interactive desktop terminals also open the verification page. Use `3dr login --device --no-browser` to print the link and code without opening a browser. If the code expires, start login again. For a local browser callback, use `3dr login --loopback` (authorization code with PKCE). Sites without device-code support automatically use this older flow and require the browser to run on the same computer as 3dr, including with `--no-browser`. Tokens are saved in the operating system's credential store (macOS Keychain, Windows Credential Manager or an unlocked Linux Secret Service). On a remote Linux host, the agent’s own login session must have access to that credential store. Use `status` to check live access and `logout` to revoke it. A website revocation applies to subsequent requests. Declining consent or running `logout` stops background authorization prompts for that site and profile. To reconnect, run the login command shown for that profile. Each site and profile has its own credential. Requests go to the website’s MCP endpoint. Uploads send the selected file to a single-use signed destination.
 
 ## Distribution
 

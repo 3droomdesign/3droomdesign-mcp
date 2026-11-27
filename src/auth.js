@@ -5,6 +5,7 @@ import { access, mkdir, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import lockfile from 'proper-lockfile';
+import { deviceLogin } from './device-auth.js';
 
 // The registered OAuth identifier also applies to grants created by earlier CLI versions.
 export const clientId = '3dr-media-mcp';
@@ -83,7 +84,16 @@ export function deviceVault(endpoint, profile) {
   }
   return {
     async read() {
-      const value = await (await credential()).getPassword();
+      let value;
+      try {
+        value = await (await credential()).getPassword();
+      } catch (cause) {
+        if (process.platform !== 'linux') throw cause;
+        throw new Error(
+          'Could not read the operating system credential store. Unlock a Linux Secret Service in the session running 3dr.',
+          { cause },
+        );
+      }
       return value ? JSON.parse(value) : null;
     },
     async write(value) {
@@ -109,7 +119,8 @@ export function deviceVault(endpoint, profile) {
       await mkdir(directory, { recursive: true, mode: 0o700 });
       const unlock = await lockfile.lock(directory, {
         stale: 30000,
-        retries: { retries: 210, factor: 1, minTimeout: 1000, maxTimeout: 1000 },
+        // Another host may be waiting for a ten-minute device authorization.
+        retries: { retries: 650, factor: 1, minTimeout: 1000, maxTimeout: 1000 },
       });
       try {
         return await task();
@@ -129,6 +140,7 @@ export class Session {
       log = (message) => process.stderr.write(message + '\n'),
       fetcher = fetch,
       manual = false,
+      loginMode = 'auto',
       autoLogin = true,
       language = 'en',
       loginCommand = '3dr login',
@@ -140,6 +152,7 @@ export class Session {
     this.log = log;
     this.fetcher = fetcher;
     this.manual = manual;
+    this.loginMode = loginMode;
     this.autoLogin = autoLogin;
     this.language = language;
     this.loginCommand = loginCommand;
@@ -209,21 +222,29 @@ export class Session {
     const meta = await read('/.well-known/oauth-authorization-server');
     if (meta.issuer !== this.endpoint.origin || !meta.code_challenge_methods_supported?.includes('S256'))
       throw new Error('Unexpected authorization server identity.');
-    for (const key of ['authorization_endpoint', 'token_endpoint', 'revocation_endpoint']) {
+    const endpoints = ['authorization_endpoint', 'token_endpoint', 'revocation_endpoint'];
+    if (meta.device_authorization_endpoint !== undefined) endpoints.push('device_authorization_endpoint');
+    for (const key of endpoints) {
       const u = new URL(meta[key]);
-      if (u.origin !== meta.issuer || u.username || u.password || u.hash)
+      if (
+        u.protocol !== this.endpoint.protocol ||
+        u.origin !== meta.issuer ||
+        u.username ||
+        u.password ||
+        u.hash
+      )
         throw new Error('Invalid OAuth endpoint.');
     }
     this.metadataCache = meta;
     return meta;
   }
-  async exchange(parameters) {
+  async exchange(parameters, timeout = 30000) {
     const meta = await this.metadata();
     const res = await this.fetcher(meta.token_endpoint, {
       method: 'POST',
       body: new URLSearchParams({ client_id: clientId, resource: this.endpoint.href, ...parameters }),
       redirect: 'error',
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(timeout),
     });
     if (!res.ok) {
       const problem = await res.json().catch(() => ({}));
@@ -234,6 +255,7 @@ export class Session {
             : `Authorization expired or revoked. Run ${this.loginCommand}.`
           : 'The token request failed (' + res.status + ').',
       );
+      error.oauthCode = problem.error;
       error.invalidGrant = problem.error === 'invalid_grant';
       throw error;
     }
@@ -256,6 +278,18 @@ export class Session {
   }
   async login() {
     const meta = await this.metadata();
+    if (meta.device_authorization_endpoint && this.loginMode !== 'loopback')
+      return deviceLogin(this, meta, {
+        client_id: clientId,
+        resource: this.endpoint.href,
+        scope: supportedScopes(meta),
+      });
+    if (this.loginMode === 'device')
+      throw new Error(
+        this.language === 'zh-CN'
+          ? '此站点尚未提供设备码登录。请在运行 3dr 的电脑上使用本机回调登录。'
+          : 'This site does not offer device login yet. Use loopback login on the computer running 3dr.',
+      );
     const verifier = random(),
       state = random(),
       challenge = createHash('sha256').update(verifier).digest('base64url');
